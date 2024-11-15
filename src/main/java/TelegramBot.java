@@ -12,24 +12,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-public class TelegramBot extends TelegramLongPollingBot { //наследование от класса, позволяющего взаимодействовать с API Telegram'а
-    private static final String USERNAME = Config.getUsername(); //название бота
-    private static final String TOKEN = Config.getToken(); //токен бота
+//наследование от класса, позволяющего взаимодействовать с API Telegram'а
+public class TelegramBot extends TelegramLongPollingBot {
+    private static final String USERNAME = Config.getUsername();
+    private static final String TOKEN = Config.getToken();
 
+    //константы - названия кнопок
     private static final String ADD_EXPENSE_BTN = "Добавить расход";
     private static final String SHOW_CATEGORIES_BTN = "Список категорий";
     private static final String SHOW_EXPENSES_BTN = "Список расходов";
 
-    private static final Map<String, List<Integer>> EXPENSES = new TreeMap<>(); //хранению категории (ключа) и трат в этой категории (значение)
+    //коллекция для хранения категорий (ключ) и списка трат в этих категориях (значение)
+    private static final Map<String, List<Integer>> EXPENSES = new TreeMap<>();
 
-    //нужно вынести токен и название в отдельный файл, подтягивать через InputStream
-    //название бота
     @Override
     public String getBotUsername() {
         return USERNAME;
     }
 
-    //ключ доступа (токен) к боту
     @Override
     public String getBotToken() {
         return TOKEN;
@@ -42,13 +42,13 @@ public class TelegramBot extends TelegramLongPollingBot { //наследован
         если срабатывает условие, которое нас не устраивает, то, например,
         программа завершается/происходит выход из цикла;
         такой подход позволяет избежать большой вложенности условий
-        (можно было сделать if с проверкой не инвертированных условий - если есть сообщение и текст в нем*/
+        (можно было сделать if с проверкой не инвертированных условий -
+        если есть сообщение и текст в нем, то выполнить код в теле)*/
         if (!update.hasMessage() || !update.getMessage().hasText()) {
-            System.out.println("Unsupported update - no message/no text in message".concat("\n------------------------"));
+            System.out.println("Unsupported update - no message/text in message".concat("\n------------------------"));
             return;
         }
         Message message = update.getMessage();
-
         Long chatId = message.getChatId();
         String messageText = message.getText();
         String userName = message.getFrom().getUserName();
@@ -58,10 +58,10 @@ public class TelegramBot extends TelegramLongPollingBot { //наследован
 
         switch (messageText) {
             case "/start":
-                sendKeyboard(chatId, String.format("Привет, %s!\nЯ помогу тебе контролировать твои расходы!\nВнесите первую запись в формате: \"Категория Сумма\"", userName), replyKeyboardMarkup());
+                sendKeyboard(chatId, String.format("Привет, %s!\nЯ помогу контролировать Ваши расходы!\nВнесите первую запись в формате: \"Категория Сумма\"", userName), replyKeyboardMarkup());
                 break;
             case ADD_EXPENSE_BTN:
-                sendKeyboard(chatId, "Введите название категории и сумму трат через пробел", replyKeyboardMarkup());
+                sendKeyboard(chatId, "Введите название категории и сумму трат в этой категории через пробел", replyKeyboardMarkup());
                 break;
             case SHOW_CATEGORIES_BTN:
                 sendKeyboard(chatId, getFormattedCategories(), replyKeyboardMarkup());
@@ -69,41 +69,41 @@ public class TelegramBot extends TelegramLongPollingBot { //наследован
             case SHOW_EXPENSES_BTN:
                 sendKeyboard(chatId, getFormattedExpenses(), replyKeyboardMarkup());
                 break;
-            default: { //обработка текста, не соответствующего кнопкам
-                List<String> splitMessage = List.of(messageText.split("\\s+")); //разделение текста по пробелам
-                if (splitMessage.size() == 2) { //если формат сообщения верный: "Категория Сумма"
-                    StringBuilder formattedCategory = new StringBuilder(); //для формирования название категории в первой заглавное и остальными строчными буквами
+            default: { //обработка update с текстом, не соответствующим тексту с кнопок
+                List<String> splitMessage = List.of(messageText.split("\\s+")); //разделение текста сообщения по пробелам (название категории - трата)
+                if (splitMessage.size() == 2) { //если формат сообщения верный и состоит из двух компонентов - "Категория Сумма"
+                    StringBuilder formattedCategory = new StringBuilder(); //для формирования название категории с первой заглавной и остальными строчными буквами
                     String firstLetter = splitMessage.get(0).substring(0, 1).toUpperCase(); //первая заглавная буква
                     String otherLetters = splitMessage.get(0).substring(1).toLowerCase(); //остальные буквы - строчные
                     String category = formattedCategory.append(firstLetter).append(otherLetters).toString();
-//                    if (!EXPENSES.containsKey(category)) { //если такой категории еще не было, то добавляем ее
+//                    if (!EXPENSES.containsKey(category)) { //если введенной категории еще нет, то добавляем ее в коллекцию
 //                        EXPENSES.put(category, new ArrayList<>()); /*добавление категории (ключ) и создание пустого списка трат,
 //                        который будет дополняться впоследствии (значение); пустой список необходим для того, чтобы последующие
-//                        записи трат происходили без проблем (на момент добавления траты список уже будет)*/
+//                        записи трат происходили без проблем (на момент добавления траты пустой список уже будет существовать)*/
 //                    }
-                    EXPENSES.putIfAbsent(category, new ArrayList<>()); //аналог закомментированного выше кода - добавление только, если записей с таким ключом еще не было
-                    Integer amount = Integer.parseInt(splitMessage.get(1)); //сумма трат
+                    EXPENSES.putIfAbsent(category, new ArrayList<>()); //аналог закомментированного выше кода -
+                    //добавление только, если записей с таким ключом еще не было
+                    Integer amount = Integer.parseInt(splitMessage.get(1)); //сумма добавляемой траты
                     EXPENSES.get(category).add(amount); //добавление траты по категории
-                } else {
-                    sendKeyboard(chatId, String.format("\"%s\"?\nНекорректное значение\nФормат ввода: \"Категория Сумма\"", messageText), replyKeyboardMarkup());
-                }
+                } else //если введено сообщение другого формата
+                    sendKeyboard(chatId, String.format("\"%s\"?\nВведено некорректное значение\nНеобходимый формат ввода: \"Категория Сумма\"", messageText), replyKeyboardMarkup());
                 break;
             }
         }
     }
 
-    //отправка текстового сообщения
-    private void sendMessage(Long chatId, String messageText) {
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(String.valueOf(chatId))
-                .text(messageText)
-                .build();
-        try {
-            execute(sendMessage);
-        } catch (TelegramApiException e) {
-            System.out.println(e.getMessage());
-        }
-    }
+//    //отправка текстового сообщения
+//    private void sendMessage(Long chatId, String messageText) {
+//        SendMessage sendMessage = SendMessage.builder()
+//                .chatId(String.valueOf(chatId))
+//                .text(messageText)
+//                .build();
+//        try {
+//            execute(sendMessage);
+//        } catch (TelegramApiException e) {
+//            System.out.println(e.getMessage());
+//        }
+//    }
 
     //отправка текстового сообщения и клавиатуры
     private void sendKeyboard(Long chatId, String messageText, ReplyKeyboardMarkup replyKeyboardMarkup) {
@@ -122,18 +122,18 @@ public class TelegramBot extends TelegramLongPollingBot { //наследован
     //клавиатура для ответа, заменяющая основную (нажатие кнопки отправляет текст с кнопки)
     private static ReplyKeyboardMarkup replyKeyboardMarkup() {
         KeyboardRow firstRow = new KeyboardRow(); //первый ряд кнопок
-        List<String> buttonsNames = List.of(ADD_EXPENSE_BTN, SHOW_CATEGORIES_BTN);
+        List<String> buttonsNames = List.of(SHOW_CATEGORIES_BTN, SHOW_EXPENSES_BTN);
         firstRow.addAll(buttonsNames);
 
         KeyboardRow secondRow = new KeyboardRow(); //второй ряд кнопок
-        buttonsNames = List.of(SHOW_EXPENSES_BTN);
+        buttonsNames = List.of(ADD_EXPENSE_BTN);
         secondRow.addAll(buttonsNames);
 
         List<KeyboardRow> rows = List.of(firstRow, secondRow); //список рядов кнопок
 
         return ReplyKeyboardMarkup.builder() //создание клавиатуры
                 .keyboard(rows) //кнопки клавиатуры (добавление списка рядов кнопок)
-                .resizeKeyboard(true) //приведение размера клавиш к нормальному
+                .resizeKeyboard(true) //приведение размера кнопок к нормальному
                 .build();
     }
 
@@ -143,12 +143,16 @@ public class TelegramBot extends TelegramLongPollingBot { //наследован
 
     private String getFormattedExpenses() {
         StringBuilder formattedResult = new StringBuilder();
-        for (Map.Entry<String, List<Integer>> category : EXPENSES.entrySet()) { //перебор всех записей в списке трат, берется категория
+        for (Map.Entry<String, List<Integer>> category : EXPENSES.entrySet()) { //перебор всех категорий в списке трат
             StringBuilder categoryExpenses = new StringBuilder();
-            for (Integer expense : category.getValue()) { //для каждой категории перебираем все траты
-                categoryExpenses.append(expense).append(", "); //собираем все траты в строку
+            for (Integer expense : category.getValue()) { //перебор всех трат по конкретной (текущей) категории
+                categoryExpenses.append(expense).append(", "); //собираем все траты по категории в одну строку
             }
-            formattedResult.append(category.getKey()).append(": ").append(categoryExpenses.substring(0, categoryExpenses.length() - 2)).append("\n"); //формирование ответа в виде "Категория - 100 200 300 400"
+            //формирование результата в виде "Категория: 100, 200, 300, 400"
+            formattedResult.append(category.getKey())
+                    .append(": ")
+                    .append(categoryExpenses.substring(0, categoryExpenses.length() - 2))
+                    .append("\n");
         }
         return formattedResult.toString();
     }

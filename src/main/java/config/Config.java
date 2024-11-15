@@ -17,7 +17,7 @@ public class Config {
     }
 
     public static void readData() {
-        File dir = new File("config/");
+        File dir = new File("src/main/resources/config/");
         File username = new File(dir, "username.txt");
         File token = new File(dir, "token.txt");
 
