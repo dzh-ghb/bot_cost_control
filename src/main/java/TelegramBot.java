@@ -9,7 +9,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRem
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 //наследование от класса, позволяющего взаимодействовать с API Telegram'а
 public class TelegramBot extends TelegramLongPollingBot {
@@ -24,11 +27,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static final String AWAITS_CATEGORY_STATE = "AWAITS_CATEGORY";
     private static final String AWAITS_EXPENSE_STATE = "AWAITS_EXPENSE";
 
-    //переменная для хранения текущего состояния бота
-    private static String currentState = IDLE_STATE;
-    //переменная для хранения введенной в состоянии AWAITS_CATEGORY_STATE категории
-    private static String lastCategory = null;
-
     //константы - названия кнопок
     private static final String ADD_EXPENSE_BTN = "Добавить расход";
     private static final String SHOW_CATEGORIES_BTN = "Список категорий";
@@ -37,8 +35,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     //список кнопок для основной клавиатуры
     private static final List<String> MAIN_BTN_LIST = List.of(ADD_EXPENSE_BTN, SHOW_CATEGORIES_BTN, SHOW_EXPENSES_BTN);
 
-    //коллекция для хранения категорий (ключ) и списка трат в этих категориях (значение)
-    private static final Map<String, List<Integer>> EXPENSES = new TreeMap<>();
+    //коллекция для хранения идентификатора чата (key) и объекта типа ChatState (value)
+    private static final Map<Long, ChatState> CHATS = new HashMap<>();
 
     @Override
     public String getBotUsername() {
@@ -60,116 +58,90 @@ public class TelegramBot extends TelegramLongPollingBot {
         (можно было сделать if с проверкой не инвертированных условий -
         если есть сообщение и текст в нем, то выполнить код в теле)*/
         if (!update.hasMessage() || !update.getMessage().hasText()) {
-            System.out.println("Unsupported update - no message/text in message".concat("\n------------------------"));
+            System.out.println("------------------------"
+                    .concat("\nUnsupported update - no message/text in message")
+                    .concat("\n------------------------"));
             return;
         }
         Message message = update.getMessage();
-        Long chatId = message.getChatId();
+        Long chatId = message.getChatId(); //получение идентификатора конкретного чата
+        CHATS.putIfAbsent(chatId, new ChatState(IDLE_STATE)); //если идентификатора чата в коллекции нет - добавление и создание пустого объекта класса ChatState
+        ChatState currentChat = CHATS.get(chatId);
+
         String messageText = message.getText();
         String userName = message.getFrom().getUserName();
-
         String logMessage = "From: ".concat(userName).concat("\nMessage: \"").concat(messageText).concat("\"");
         System.out.println(logMessage.concat("\n------------------------"));
 
-        switch (currentState) {
+        switch (currentChat.getState()) { //использование состояния конкретного чата
             case IDLE_STATE:
-                handleIdle(message);
-//                System.out.println(currentState);
+                handleIdle(message, currentChat);
                 break;
             case AWAITS_CATEGORY_STATE:
-                handleAwaitCategory(message);
-//                System.out.println(currentState);
+                handleAwaitCategory(message, currentChat);
                 break;
             case AWAITS_EXPENSE_STATE:
-                handleAwaitExpense(message);
-//                System.out.println(currentState);
+                handleAwaitExpense(message, currentChat);
                 break;
         }
     }
 
     //метод для смены состояния
-    private void changeState(String newState, Long chatId, String messageText, List<String> buttonNames) {
-        System.out.println(currentState + " -> " + newState);
-        currentState = newState;
+    private void changeState(String newState,
+                             Long chatId,
+                             ChatState currentChat,
+                             String messageText,
+                             List<String> buttonNames) {
+        System.out.println(currentChat.getState() + " -> " + newState + "\n------------------------".repeat(2));
+        currentChat.setState(newState);
         sendKeyboard(chatId, messageText, buildKeyboard(buttonNames));
     }
 
     //метод обработки состояния IDLE
-    private void handleIdle(Message incomingMessage) {
+    private void handleIdle(Message incomingMessage, ChatState currentChat) {
         String incomingText = incomingMessage.getText();
         Long chatId = incomingMessage.getChatId();
         switch (incomingText) {
             case "/start":
-                sendKeyboard(chatId, String.format("Привет, %s!\nЯ помогу контролировать Ваши расходы!\nВнесите первую запись в формате: \"Категория Сумма\"", incomingMessage.getFrom().getUserName()), buildKeyboard(MAIN_BTN_LIST));
+                sendKeyboard(chatId, String.format("Привет, %s!\nЯ помогу контролировать Ваши расходы!\nДля добавления расхода нажмите кнопку \"Добавить расход\"", incomingMessage.getFrom().getUserName()), buildKeyboard(MAIN_BTN_LIST));
                 break;
             case ADD_EXPENSE_BTN:
-                changeState(AWAITS_CATEGORY_STATE, chatId, "Укажите категорию", null);
-//                sendKeyboard(chatId, "Введите название категории и сумму трат в этой категории через пробел", buildKeyboard(MAIN_BTN_LIST));
+                changeState(AWAITS_CATEGORY_STATE, chatId, currentChat, "Укажите категорию", null);
                 break;
             case SHOW_CATEGORIES_BTN:
-                changeState(IDLE_STATE, chatId, getFormattedCategories(), MAIN_BTN_LIST);
-//                sendKeyboard(chatId, getFormattedCategories(), buildKeyboard(MAIN_BTN_LIST));
+                changeState(IDLE_STATE, chatId, currentChat, currentChat.getFormattedCategories(), MAIN_BTN_LIST);
                 break;
             case SHOW_EXPENSES_BTN:
-                changeState(IDLE_STATE, chatId, getFormattedExpenses(), MAIN_BTN_LIST);
-//                sendKeyboard(chatId, getFormattedExpenses(), buildKeyboard(MAIN_BTN_LIST));
+                changeState(IDLE_STATE, chatId, currentChat, currentChat.getFormattedExpenses(), MAIN_BTN_LIST);
                 break;
             default: {
-                changeState(IDLE_STATE, chatId, "Такой команды нет", MAIN_BTN_LIST);
+                changeState(IDLE_STATE, chatId, currentChat, "Такой команды нет", MAIN_BTN_LIST);
                 break;
             }
         }
     }
 
     //метод обработки состояния AWAITS_CATEGORY_STATE
-    private void handleAwaitCategory(Message incomingMessage) {
+    private void handleAwaitCategory(Message incomingMessage, ChatState currentChat) {
         String incomingText = incomingMessage.getText();
         Long chatId = incomingMessage.getChatId();
-        EXPENSES.putIfAbsent(incomingText, new ArrayList<>()); //добавление только, если записей с таким ключом (категорией) еще нет,
+        currentChat.getExpenses().putIfAbsent(incomingText, new ArrayList<>()); //добавление только, если записей с таким ключом (категорией) еще нет,
         //категория соотносится с пустым списком расходов (для корректного добавления расхода в список на следующем шаге)
-        lastCategory = incomingText; //запоминаем выбранную категорию
-        changeState(AWAITS_EXPENSE_STATE, chatId, "Введите сумму расхода", null); //переход в состояние ввода ожидания расхода (без клавиатуры)
+        currentChat.setData(incomingText); //запоминаем выбранную категорию для использования в методе ввода расхода
+        changeState(AWAITS_EXPENSE_STATE, chatId, currentChat, "Введите сумму расхода", null); //переход в состояние ввода ожидания расхода (без клавиатуры)
     }
 
     //метод обработки состояния AWAITS_EXPENSE_STATE
-    private void handleAwaitExpense(Message incomingMessage) {
+    private void handleAwaitExpense(Message incomingMessage, ChatState currentChat) {
         Long chatId = incomingMessage.getChatId();
-        if (lastCategory == null) {
-            changeState(IDLE_STATE, chatId, "Не выбрана категория для добавления расхода\nПопробуйте начать с начала", MAIN_BTN_LIST);
+        if (currentChat.getData() == null) {
+            changeState(IDLE_STATE, chatId, currentChat, "Не выбрана категория для добавления расхода\nПопробуйте начать с начала", MAIN_BTN_LIST);
             return;
         }
         String incomingText = incomingMessage.getText();
         Integer expense = Integer.parseInt(incomingText);
-        EXPENSES.get(lastCategory).add(expense);
-        changeState(IDLE_STATE, chatId, "Расход по категории \"" + lastCategory + "\" добавлен успешно", MAIN_BTN_LIST);
-    }
-
-    //метод получения списка добавленных категорий
-    private String getFormattedCategories() {
-        Set<String> categories = EXPENSES.keySet();
-        if (categories.isEmpty())
-            return "Нет добавленных категорий"; //если категорий нет - отправка соответствующего сообщения
-        return String.join("\n", categories);
-    }
-
-    //метод получения расходов по добавленным категориям
-    private String getFormattedExpenses() {
-        Set<Map.Entry<String, List<Integer>>> expensesPerCategories = EXPENSES.entrySet();
-        if (expensesPerCategories.isEmpty())
-            return "Нет добавленных расходов"; //если расходов нет - отправка соответствующего сообщения
-        StringBuilder formattedResult = new StringBuilder();
-        for (Map.Entry<String, List<Integer>> category : expensesPerCategories) { //перебор всех категорий в списке трат
-            StringBuilder categoryExpenses = new StringBuilder();
-            for (Integer expense : category.getValue()) { //перебор всех трат по конкретной (текущей) категории
-                categoryExpenses.append(expense).append(", "); //собираем все траты по категории в одну строку
-            }
-            //формирование результата в виде "Категория: 100, 200, 300, 400"
-            formattedResult.append(category.getKey())
-                    .append(": ")
-                    .append(categoryExpenses.substring(0, categoryExpenses.length() - 2))
-                    .append("\n");
-        }
-        return formattedResult.toString();
+        currentChat.getExpenses().get(currentChat.getData()).add(expense);
+        changeState(IDLE_STATE, chatId, currentChat, "Расход по категории \"" + currentChat.getData() + "\" добавлен успешно", MAIN_BTN_LIST);
     }
 
     //отправка текстового сообщения и клавиатуры
