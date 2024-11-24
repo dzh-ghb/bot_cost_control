@@ -40,3 +40,8 @@ build/
 ### Other ###
 /src/main/resources/config/
 /other/
+
+### Artifacts ###
+/.idea/artifacts/
+/META-INF/
+/out/
