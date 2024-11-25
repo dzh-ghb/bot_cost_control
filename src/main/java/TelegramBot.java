@@ -106,7 +106,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendKeyboard(chatId, String.format("Привет, %s!\nЯ помогу контролировать Ваши расходы!\nДля добавления расхода нажмите кнопку \"Добавить расход\"", incomingMessage.getFrom().getUserName()), buildKeyboard(MAIN_BTN_LIST));
                 break;
             case ADD_EXPENSE_BTN:
-                changeState(AWAITS_CATEGORY_STATE, chatId, currentChat, "Укажите категорию", null);
+                changeState(AWAITS_CATEGORY_STATE, chatId, currentChat, "Укажите категорию", new ArrayList<>(currentChat.getExpenses().keySet()));
                 break;
             case SHOW_CATEGORIES_BTN:
                 changeState(IDLE_STATE, chatId, currentChat, currentChat.getFormattedCategories(), MAIN_BTN_LIST);
