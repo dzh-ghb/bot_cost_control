@@ -124,10 +124,14 @@ public class TelegramBot extends TelegramLongPollingBot {
     //метод обработки состояния AWAITS_CATEGORY_STATE
     private void handleAwaitCategory(Message incomingMessage, ChatState currentChat) {
         String incomingText = incomingMessage.getText();
+        //форматирование введенной категории в формат "Категория" (1-я буква заглавная, остальные - строчные) с удалением пробелов слева и справа
+        String formattedIncomingText = incomingText.substring(0, 1).toUpperCase()
+                .concat(incomingText.substring(1).toLowerCase())
+                .trim();
         Long chatId = incomingMessage.getChatId();
-        currentChat.getExpenses().putIfAbsent(incomingText, new ArrayList<>()); //добавление только, если записей с таким ключом (категорией) еще нет,
+        currentChat.getExpenses().putIfAbsent(formattedIncomingText, new ArrayList<>()); //добавление только, если записей с таким ключом (категорией) еще нет,
         //категория соотносится с пустым списком расходов (для корректного добавления расхода в список на следующем шаге)
-        currentChat.setData(incomingText); //запоминаем выбранную категорию для использования в методе ввода расхода
+        currentChat.setData(formattedIncomingText); //запоминаем выбранную категорию для использования в методе ввода расхода
         changeState(AWAITS_EXPENSE_STATE, chatId, currentChat, "Введите сумму расхода", null); //переход в состояние ввода ожидания расхода (без клавиатуры)
     }
 
