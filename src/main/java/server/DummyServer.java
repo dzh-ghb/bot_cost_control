@@ -11,7 +11,7 @@ import java.net.InetSocketAddress;
 public class DummyServer {
     public static void startServer() throws IOException {
         //1-ый параметр - порт, на котором будет запущен сервер, 2-ой - лог
-        HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(getServerPort()), 0);
         HttpHandler getServerStatus = DummyServer::getServerStatus;
         //метод для приема запросов, 1-ый параметр - url, который будет слушаться, 2-ой - метод обработки запроса и отправки ответа
         server.createContext("/", getServerStatus);
@@ -23,5 +23,9 @@ public class DummyServer {
         //1-ый параметр - код ответа (сервер реагирует на этот код), 2-ой - длина ответа
         exchange.getResponseBody().write(responseText.getBytes()); //запись текста ответа
         exchange.close(); //закрытие объекта
+    }
+
+    private static Integer getServerPort() {
+        return Integer.parseInt(System.getenv("SERVER_PORT"));
     }
 }

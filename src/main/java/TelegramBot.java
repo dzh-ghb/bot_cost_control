@@ -16,8 +16,8 @@ import java.util.Map;
 
 //наследование от класса, позволяющего взаимодействовать с API Telegram'а
 public class TelegramBot extends TelegramLongPollingBot {
-    private static final String USERNAME = Config.getUsername();
-    private static final String TOKEN = Config.getToken();
+//    private static final String USERNAME = Config.getUsername();
+//    private static final String TOKEN = Config.getToken();
 
     //варианты переходов состояний:
     //1. IDLE -> AWAITS_CATEGORY -> AWAITS_EXPENSE -> IDLE
@@ -40,12 +40,12 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotUsername() {
-        return USERNAME;
+        return System.getenv("TG_BOT_USERNAME"); //USERNAME
     }
 
     @Override
     public String getBotToken() {
-        return TOKEN;
+        return System.getenv("TG_BOT_TOKEN"); //TOKEN
     }
 
     @Override
