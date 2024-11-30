@@ -20,7 +20,7 @@ public class DummyServer {
     private static void getServerStatus(HttpExchange exchange) throws IOException { //объект, который будет передаваться в вызов метода Java-Web-сервером
         String responseText = "Bot is running"; //текст ответа
         exchange.sendResponseHeaders(200, responseText.getBytes().length); //отправка заголовка ответа
-        //1-ый параметр - код ответа, 2-ой - длина ответа
+        //1-ый параметр - код ответа (сервер реагирует на этот код), 2-ой - длина ответа
         exchange.getResponseBody().write(responseText.getBytes()); //запись текста ответа
         exchange.close(); //закрытие объекта
     }
